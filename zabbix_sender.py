@@ -1,48 +1,18 @@
-import time
-import paho.mqtt.client as mqtt
+import subprocess
 from ZabbixSender import ZabbixSender, ZabbixPacket
-
-_SLEEP = 5
-
-_PORT_MQTT = 9999
-_SERVER_MQTT = "srcv.ddns.net"
 
 _HOST = "SENSORES"
 _PORT_ZABBIX = 10051
 _SERVER_ZABBIX = "zabbixcv.ddns.net"
 
-_TOPC_TEMP = "002/temp"
-_TOPC_HUMI = "002/humi"
-
-
-client = mqtt.Client()
-client.connect(_SERVER_MQTT, _PORT_MQTT, 60)
 server = ZabbixSender(_SERVER_ZABBIX, _PORT_ZABBIX)
+packet = ZabbixPacket()
 
-def on_connect(client, userdata, flags, rc):
-    client.subscribe(_TOPC_TEMP)
-    client.subscribe(_TOPC_HUMI)
-
-def on_message(client, userdata, msg):
-    print(msg.topic+" "+str(float(msg.payload)))
-
-    packet = ZabbixPacket()
-
-    if msg.topic == _TOPC_TEMP:
-    	packet.add(_HOST,'temp', float(msg.payload))
-    	server.send(packet)
-    	print(server.status)
-    elif msg.topic == _TOPC_HUMI:
-    	packet.add(_HOST,'humi', float(msg.payload))
-    	server.send(packet)
-    	print(server.status)
-
-    del packet
-    time.sleep(_SLEEP)
-
-   
-client.on_connect = on_connect
-client.on_message = on_message
-client.loop_forever()
+temp = float(subprocess.Popen("mosquitto_sub -h srcv.ddns.net -p 9999 -t 002/temp -C 1", shell=True, stdout=subprocess.PIPE).stdout.read().decode())
+humi = float(subprocess.Popen("mosquitto_sub -h srcv.ddns.net -p 9999 -t 002/humi -C 1", shell=True, stdout=subprocess.PIPE).stdout.read().decode())
+packet.add(_HOST,'temp', temp)
+packet.add(_HOST,'humi', humi)
+server.send(packet)
+print(server.status)
 
 
